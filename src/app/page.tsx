@@ -4,7 +4,7 @@ import {
   WandSparkles,
   PlusCircle,
   Trash,
-  Link
+  Bomb
 } from "lucide-react"
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -17,41 +17,130 @@ import {
   CardContent,
   CardFooter
 } from "@/components/ui/card"
-import type { PutBlobResult } from '@vercel/blob';
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 
 interface Field {
-  prompt: string;
-  completion: string;
-  [key: string]: string;
+  prompt?: string;
+  completion?: string;
+  text?: string;
 }
 
 const App: React.FC = () => {
-  const [fields, setFields] = useState<Field[]>([{ prompt: '', completion: '' }]);
   const [jsonOutput, setJsonOutput] = useState<string>('');
   const [publishedUrl, setPublishedUrl] = useState<string>('');
+  const [selectedModelType, setSelectedModelType] = useState<string>("instructions");
+  const [fields, setFields] = useState<{ prompt?: string; completion?: string; text?: string }[]>(
+    selectedModelType === "instructions" ? [{ prompt: "", completion: "" }] : [{ text: "" }]
+  );
 
   const handleInputChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
     const values = [...fields];
-    values[index][event.target.name] = event.target.value;
+    if (selectedModelType === "instructions") {
+      values[index] = {
+        ...values[index],
+        prompt: event.target.name === "prompt" ? event.target.value : values[index].prompt,
+        completion: event.target.name === "completion" ? event.target.value : values[index].completion,
+      };
+    } else {
+      values[index] = {
+        ...values[index],
+        text: event.target.value,
+      };
+    }
     setFields(values);
     setJsonOutput(JSON.stringify(values, null, 2));
   };
 
+  const handleTextAreaChange = (index: number, event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const values = [...fields];
+    if (selectedModelType === "instructions") {
+      values[index] = {
+        ...values[index],
+        prompt: event.target.name === "prompt" ? event.target.value : values[index].prompt,
+        completion: event.target.name === "completion" ? event.target.value : values[index].completion,
+      };
+    } else {
+      values[index] = {
+        ...values[index],
+        text: event.target.value,
+      };
+    }
+    setFields(values);
+    setJsonOutput(JSON.stringify(values, null, 2));
+  };
+
+  const resetFields = () => {
+    setFields(selectedModelType === "instructions" ? [{ prompt: "", completion: "" }] : [{ text: "" }]);
+    setJsonOutput(selectedModelType === "instructions" ? JSON.stringify([{ prompt: "", completion: "" }], null, 2) : JSON.stringify([{ text: "" }], null, 2));
+  };
+
+  const updateFieldsForInstructionsModel = () => {
+    const instructionsFields = fields.map((field) => ({
+      prompt: field.prompt || "",
+      completion: field.completion || "",
+    }));
+    setFields(instructionsFields);
+    setJsonOutput(JSON.stringify(instructionsFields, null, 2));
+  };
+
+  const updateFieldsForAutocompleteModel = () => {
+    const autocompleteFields = fields.map((field) => ({
+      text: field.text || "",
+    }));
+    setFields(autocompleteFields);
+    setJsonOutput(JSON.stringify(autocompleteFields, null, 2));
+  };
+
   const handleJsonChange = (event: { target: { value: React.SetStateAction<string>; }; }) => {
     try {
-      const parsedJson = JSON.parse(JSON.stringify(event.target.value, null, 2));
-      setFields(parsedJson);
-      setJsonOutput(event.target.value);
+      const jsonValue = typeof event.target.value === 'string' ? event.target.value : '';
+      const parsedJson = JSON.parse(jsonValue);
+
+      // Validate the structure of parsedJson
+      const isValidStructure =
+        parsedJson.length > 0 &&
+        parsedJson.every(
+          (field: Field) =>
+            (selectedModelType === "instructions" && field.prompt !== undefined && field.completion !== undefined) ||
+            (selectedModelType === "autocomplete" && field.text !== undefined)
+        );
+
+      if (isValidStructure) {
+        setFields(parsedJson);
+        setJsonOutput(JSON.stringify(parsedJson, null, 2));
+      } else {
+        console.error('Invalid JSON structure');
+      }
     } catch (error) {
       console.error('Invalid JSON:', error);
     }
   };
 
   const handleAddField = () => {
-    const values = [...fields];
-    values.push({ prompt: '', completion: '' });
-    setFields(values);
-    setJsonOutput(JSON.stringify(values, null, 2));
+    const newField: Field = selectedModelType === "instructions" ? { prompt: "", completion: "" } : { text: "" };
+    const updatedFields = [...fields, newField];
+    setFields(updatedFields);
+    setJsonOutput(JSON.stringify(updatedFields, null, 2));
   };
 
   const handleRemoveField = (index: number) => {
@@ -61,7 +150,9 @@ const App: React.FC = () => {
     setJsonOutput(JSON.stringify(values, null, 2));
   };
 
-  const jsonlOutput = fields.map((field) => JSON.stringify(field)).join('\n');
+  const jsonlOutput = selectedModelType === "instructions"
+    ? fields.map((field) => JSON.stringify({ prompt: field.prompt, completion: field.completion })).join("\n")
+    : fields.map((field) => JSON.stringify({ text: field.text })).join("\n");
 
   const handleDownloadJsonl = () => {
     const element = document.createElement('a');
@@ -107,38 +198,84 @@ const App: React.FC = () => {
         <div className="grid gap-2 md:gap-4 lg:grid-cols-2 xl:grid-cols-2">
           <Card className="relative h-full min-h-[80vh]">
             <div className="p-6 flex flex-row items-center justify-between space-y-0 mb-1">
-              <h3 className="font-semibold leading-none tracking-tight">Designer</h3>
+              <h3 className="font-semibold leading-none tracking-tight">
+                Designer
+                <AlertDialog>
+                  <AlertDialogTrigger>
+                    <Badge className="mx-2 hover:animate-magic-short hover:bg-red-500">
+                      Field Count: {fields.length}
+                      <Bomb className="h-3 w-3 ml-2"></Bomb>
+                    </Badge>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Do you want to reset all fields?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will reset and clear all fields. There will be no fields left.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={resetFields}>Reset Fields</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </h3>
+              <Select value={selectedModelType} onValueChange={(value) => {
+                setSelectedModelType(value);
+                (value === "instructions") ? updateFieldsForInstructionsModel() : updateFieldsForAutocompleteModel();
+              }}>
+                <SelectTrigger className="w-2/4">
+                  <SelectValue placeholder="Model type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="instructions">Instruction-tuned model</SelectItem>
+                  <SelectItem value="autocomplete">Autocompleting model</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <CardContent className="overflow-y-auto space-y-4 h-[70vh]">
               {fields.map((field, index) => (
                 <Card key={index} className="p-4 flex">
-                    <div className="flex flex-col items-center mr-2">
-                      <div className="h-8 w-8 bg-black rounded-full flex justify-center items-center text-white my-2">
-                        <span className="text-sm font-bold">{index + 1}</span>
-                      </div>
-                      <Trash 
-                        onClick={() => handleRemoveField(index)}
-                        className="h-4 w-4 my-2 hover:cursor-pointer hover:stroke-red-600"
-                        />
+                  <div className="flex flex-col items-center mr-2">
+                    <div className="h-8 w-8 bg-black rounded-full flex justify-center items-center text-white my-2">
+                      <span className="text-sm font-bold">{index + 1}</span>
                     </div>
-                    <CardContent className="flex-1 p-2 pt-0">
-                      <Input
-                        type="text"
-                        name="prompt"
-                        placeholder="Enter prompt"
-                        value={field.prompt}
-                        onChange={(event) => handleInputChange(index, event)}
+                    <Trash
+                      onClick={() => handleRemoveField(index)}
+                      className="h-4 w-4 my-2 hover:cursor-pointer hover:stroke-red-600"
+                    />
+                  </div>
+                  <CardContent className="flex-1 p-2 pt-0">
+                    {selectedModelType === "instructions" ? (
+                      <>
+                        <Input
+                          type="text"
+                          name="prompt"
+                          placeholder="Enter prompt"
+                          value={field.prompt}
+                          onChange={(event) => handleInputChange(index, event)}
+                          className="col-span-4 h-10 my-2"
+                        />
+                        <Input
+                          type="text"
+                          name="completion"
+                          placeholder="Enter completion"
+                          value={field.completion}
+                          onChange={(event) => handleInputChange(index, event)}
+                          className="col-span-4 h-10 my-1"
+                        />
+                      </>
+                    ) : (
+                      <Textarea
+                        name="text"
+                        placeholder="Enter text"
+                        value={field.text}
+                        onChange={(event) => handleTextAreaChange(index, event)}
                         className="col-span-4 h-10 my-2"
                       />
-                      <Input
-                        type="text"
-                        name="completion"
-                        placeholder="Enter completion"
-                        value={field.completion}
-                        onChange={(event) => handleInputChange(index, event)}
-                        className="col-span-4 h-10 my-1"
-                      />
-                    </CardContent>
+                    )}
+                  </CardContent>
                 </Card>
               ))}
             </CardContent>
@@ -152,8 +289,8 @@ const App: React.FC = () => {
           <Card>
             <CardContent className="p-6 items-center justify-between space-y-0 mb-1">
               <Tabs defaultValue="json">
-                <TabsList>
-                  <TabsTrigger value="json">JSON</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="json" >JSON</TabsTrigger>
                   <TabsTrigger value="jsonl">JSONL</TabsTrigger>
                 </TabsList>
                 <TabsContent value="json">
@@ -180,8 +317,8 @@ const App: React.FC = () => {
                   <WandSparkles className="h-6 w-6 hover:animate-magic-short" />
                   <AlertTitle>Published URL</AlertTitle>
                   <AlertDescription>
-                    <a href={publishedUrl} target="_blank" 
-                      className="whitespace-normal text-pretty break-words my-4 hover:underline" 
+                    <a href={publishedUrl} target="_blank"
+                      className="whitespace-normal text-pretty break-words my-4 hover:underline"
                       rel="noopener noreferrer">
                       {publishedUrl}
                     </a>
