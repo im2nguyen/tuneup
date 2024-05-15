@@ -38,6 +38,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+import { upload } from '@vercel/blob/client';
 
 interface Field {
   prompt?: string;
@@ -207,20 +208,26 @@ const App: React.FC = () => {
 
   const handlePublish = async () => {
     try {
-      const response = await fetch('/api/publish', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonlOutput,
+      const blob = await upload(`data.jsonl`, jsonlOutput, { 
+        access: "public",
+        handleUploadUrl: "/api/upload"
       });
+      setPublishedUrl(`${process.env.NEXT_PUBLIC_URL}/api/${blob.url.split(".com/")[1].replace("-", "/")}`);
 
-      if (response.ok) {
-        const newUrl = await response.json();
-        setPublishedUrl(newUrl);
-      } else {
-        console.error('Error publishing data');
-      }
+      // const response = await fetch('/api/publish', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: jsonlOutput,
+      // });
+
+      // if (response.ok) {
+      //   const newUrl = await response.json();
+      //   setPublishedUrl(newUrl);
+      // } else {
+      //   console.error('Error publishing data');
+      // }
     } catch (error) {
       console.error('Error publishing data:', error);
     }
