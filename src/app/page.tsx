@@ -263,7 +263,7 @@ const App: React.FC = () => {
           </AlertDialog>
         </div>
         <div className="grid gap-2 md:gap-4 lg:grid-cols-2 xl:grid-cols-2">
-          <Card className="relative h-full min-h-[80vh]">
+          <Card className="relative h-full min-h-[70vh]">
             <div className="p-6 flex flex-row items-center justify-between space-y-0 mb-1">
               <h3 className="font-semibold leading-none tracking-tight">
                 Designer
@@ -301,7 +301,7 @@ const App: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <CardContent className="overflow-y-auto space-y-4 h-[70vh]">
+            <CardContent className="overflow-y-auto space-y-4 h-[60vh]">
               {fields.map((field, index) => (
                 <Card key={index} className="p-4 flex">
                   <div className="flex flex-col items-center mr-2">
