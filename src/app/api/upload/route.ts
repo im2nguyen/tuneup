@@ -19,7 +19,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         // Otherwise, you're allowing anonymous uploads.
  
         return {
-          allowedContentTypes: ['application/json', 'application/text'],
+          // allowedContentTypes: ['application/json', 'application/text'],
           validUntil: 30000, // Increase timeout from 30s to 3m
           tokenPayload: JSON.stringify({
             // optional, sent to your server on upload completion
