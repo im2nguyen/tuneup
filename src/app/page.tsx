@@ -47,6 +47,7 @@ interface Field {
 
 const App: React.FC = () => {
   const [jsonOutput, setJsonOutput] = useState<string>('');
+  const [importedJsonl, setImportedJsonl] = useState<string>('');
   const [publishedUrl, setPublishedUrl] = useState<string>('');
   const [selectedModelType, setSelectedModelType] = useState<string>("instructions");
   const [fields, setFields] = useState<{ prompt?: string; completion?: string; text?: string }[]>(
@@ -92,6 +93,46 @@ const App: React.FC = () => {
   const resetFields = () => {
     setFields(selectedModelType === "instructions" ? [{ prompt: "", completion: "" }] : [{ text: "" }]);
     setJsonOutput(selectedModelType === "instructions" ? JSON.stringify([{ prompt: "", completion: "" }], null, 2) : JSON.stringify([{ text: "" }], null, 2));
+  };
+
+  const parseImportedJsonl = (jsonlData: string) => {
+    try {
+      const parsedData = jsonlData.trim().split('\n').map((line) => JSON.parse(line));
+  
+      // Detect model type based on the structure of the first object
+      const firstObject = parsedData[0];
+      const detectedModelType =
+        firstObject.prompt !== undefined && firstObject.completion !== undefined
+          ? "instructions"
+          : firstObject.text !== undefined
+          ? "autocomplete"
+          : null;
+  
+      if (detectedModelType !== null) {
+        setSelectedModelType(detectedModelType);
+  
+        // Check if the structure is valid for the detected model type
+        const isValidStructure = parsedData.every(
+          (field: Field) =>
+            (detectedModelType === "instructions" &&
+              field.prompt !== undefined &&
+              field.completion !== undefined) ||
+            (detectedModelType === "autocomplete" && field.text !== undefined)
+        );
+  
+        if (isValidStructure) {
+          setFields(parsedData);
+          setJsonOutput(JSON.stringify(parsedData, null, 2));
+          setImportedJsonl(''); // Clear the importedJsonl state after import
+        } else {
+          console.error('Invalid JSONL structure');
+        }
+      } else {
+        console.error('Unable to detect model type');
+      }
+    } catch (error) {
+      console.error('Error parsing JSONL:', error);
+    }
   };
 
   const updateFieldsForInstructionsModel = () => {
@@ -191,10 +232,36 @@ const App: React.FC = () => {
         <WandSparkles className="h-6 w-6 hover:animate-magic-short" />
         TuneUp - training data generator
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:p-8">
         <p className="text-sm">
           Use the designer or edit the JSON directly to generate a JSONL file that you can use as training data to fine tune large language models (LLM).
         </p>
+        <div className="space-y-0">
+          <AlertDialog>
+            <AlertDialogTrigger>
+              <Badge className="mx-2 bg-blue-600 hover:border-width-2">
+                Import JSONL
+              </Badge>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Import JSONL</AlertDialogTitle>
+                <AlertDialogDescription>
+                <Textarea
+                  value={importedJsonl}
+                  placeholder="Paste JSONL file here"
+                  onChange={(e) => setImportedJsonl(e.target.value)}
+                  className="w-full h-60 mb-4 font-mono"
+                />
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => parseImportedJsonl(importedJsonl)}>Import</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
         <div className="grid gap-2 md:gap-4 lg:grid-cols-2 xl:grid-cols-2">
           <Card className="relative h-full min-h-[80vh]">
             <div className="p-6 flex flex-row items-center justify-between space-y-0 mb-1">
