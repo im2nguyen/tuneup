@@ -20,7 +20,7 @@ export async function POST(request: Request): Promise<NextResponse> {
  
         return {
           allowedContentTypes: ['application/json', 'application/text'],
-          validUntil: 3 * 60 * 1000, // Increase timeout from 30s to 3m
+          validUntil: 30000, // Increase timeout from 30s to 3m
           tokenPayload: JSON.stringify({
             // optional, sent to your server on upload completion
             // you could pass a user id from auth, or a value from clientPayload
